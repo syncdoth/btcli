@@ -280,6 +280,7 @@ async def wallet_balance(
     subtensor: SubtensorInterface,
     all_balances: bool,
     ss58_addresses: Optional[str] = None,
+    handle_mining: Optional[str] = None,
 ):
     """Retrieves the current balance of the specified wallet"""
     if ss58_addresses:
@@ -297,6 +298,19 @@ async def wallet_balance(
         elif all_balances:
             print_verbose("Fetching data for all wallets", status)
             coldkeys, wallet_names = _get_coldkey_ss58_addresses_for_path(wallet.path)
+            if handle_mining in ["ignore", "only"]:
+                filtered_coldkeys = []
+                filtered_wallet_names = []
+                for coldkey, name in zip(coldkeys, wallet_names):
+                    is_mining = "mining" in name.lower()
+                    if handle_mining == "ignore" and is_mining:
+                        continue
+                    if handle_mining == "only" and not is_mining:
+                        continue
+                    filtered_coldkeys.append(coldkey)
+                    filtered_wallet_names.append(name)
+                coldkeys = filtered_coldkeys
+                wallet_names = filtered_wallet_names
         else:
             print_verbose(f"Fetching data for wallet: {wallet.name}", status)
             coldkeys = [wallet.coldkeypub.ss58_address]
@@ -311,13 +325,14 @@ async def wallet_balance(
     total_free_balance = sum(free_balances.values())
     total_staked_balance = sum(stake[0] for stake in staked_balances.values())
     total_staked_with_slippage = sum(stake[1] for stake in staked_balances.values())
-
+    total_root_balance = sum(stake[2] for stake in staked_balances.values())
     balances = {
         name: (
             coldkey,
             free_balances[coldkey],
             staked_balances[coldkey][0],
             staked_balances[coldkey][1],
+            staked_balances[coldkey][2],
         )
         for (name, coldkey) in zip(wallet_names, coldkeys)
     }
@@ -327,41 +342,55 @@ async def wallet_balance(
             "[white]Wallet Name",
             style=COLOR_PALETTE["GENERAL"]["SUBHEADING_MAIN"],
             no_wrap=True,
+            overflow="fold",
         ),
         Column(
             "[white]Coldkey Address",
             style=COLOR_PALETTE["GENERAL"]["COLDKEY"],
             no_wrap=True,
+            overflow="fold",
         ),
         Column(
             "[white]Free Balance",
             justify="right",
             style=COLOR_PALETTE["GENERAL"]["BALANCE"],
             no_wrap=True,
+            overflow="fold",
+        ),
+        Column(
+            "[white]Root Staked",
+            justify="right",
+            style=COLOR_PALETTE["STAKE"]["STAKE_ALPHA"],
+            no_wrap=True,
+            overflow="fold",
         ),
         Column(
             "[white]Staked Value",
             justify="right",
             style=COLOR_PALETTE["STAKE"]["STAKE_ALPHA"],
             no_wrap=True,
+            overflow="fold",
         ),
         Column(
             "[white]Staked (w/slippage)",
             justify="right",
             style=COLOR_PALETTE["STAKE"]["STAKE_SWAP"],
             no_wrap=True,
+            overflow="fold",
         ),
         Column(
             "[white]Total Balance",
             justify="right",
             style=COLOR_PALETTE["GENERAL"]["BALANCE"],
             no_wrap=True,
+            overflow="fold",
         ),
         Column(
             "[white]Total (w/slippage)",
             justify="right",
             style=COLOR_PALETTE["GENERAL"]["BALANCE"],
             no_wrap=True,
+            overflow="fold",
         ),
         title=f"\n[{COLOR_PALETTE['GENERAL']['HEADER']}]Wallet Coldkey Balance[/{COLOR_PALETTE['GENERAL']['HEADER']}]\n[{COLOR_PALETTE['GENERAL']['HEADER']}]Network: {subtensor.network}\n",
         show_footer=True,
@@ -373,11 +402,12 @@ async def wallet_balance(
         leading=True,
     )
 
-    for name, (coldkey, free, staked, staked_slippage) in balances.items():
+    for name, (coldkey, free, staked, staked_slippage, root_staked) in balances.items():
         table.add_row(
             name,
             coldkey,
             str(free),
+            str(root_staked),
             str(staked),
             str(staked_slippage),
             str(free + staked),
@@ -388,6 +418,7 @@ async def wallet_balance(
         "Total Balance",
         "",
         str(total_free_balance),
+        str(total_root_balance),
         str(total_staked_balance),
         str(total_staked_with_slippage),
         str(total_free_balance + total_staked_balance),

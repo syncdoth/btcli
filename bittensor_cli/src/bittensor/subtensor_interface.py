@@ -380,6 +380,7 @@ class SubtensorInterface:
         results = {}
         for ss58, stake_info_list in sub_stakes.items():
             total_tao_value = Balance(0)
+            total_root_value = Balance(0)
             total_swapped_tao_value = Balance(0)
             for sub_stake in stake_info_list:
                 if sub_stake.stake.rao == 0:
@@ -398,13 +399,14 @@ class SubtensorInterface:
                 # With slippage
                 if netuid == 0:
                     swapped_tao_value = tao_value
+                    total_root_value += tao_value
                 else:
                     swapped_tao_value, _, _ = pool.alpha_to_tao_with_slippage(
                         sub_stake.stake
                     )
                 total_swapped_tao_value += swapped_tao_value
 
-            results[ss58] = (total_tao_value, total_swapped_tao_value)
+            results[ss58] = (total_tao_value, total_swapped_tao_value, total_root_value)
         return results
 
     async def get_total_stake_for_hotkey(

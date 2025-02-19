@@ -2399,6 +2399,11 @@ class CLIManager:
         network: Optional[list[str]] = Options.network,
         quiet: bool = Options.quiet,
         verbose: bool = Options.verbose,
+        handle_mining: Optional[str] = typer.Option(
+            None,
+            "--handle-mining",
+            help="Ignore mining rewards when calculating balances.",
+        ),
     ):
         """
         Check the balance of the wallet. This command shows a detailed view of the wallet's coldkey balances, including free and staked balances.
@@ -2487,7 +2492,7 @@ class CLIManager:
                 )
         subtensor = self.initialize_chain(network)
         return self._run_command(
-            wallets.wallet_balance(wallet, subtensor, all_balances, ss58_addresses)
+            wallets.wallet_balance(wallet, subtensor, all_balances, ss58_addresses, handle_mining)
         )
 
     def wallet_history(
